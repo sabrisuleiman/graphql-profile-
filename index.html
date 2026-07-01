@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>01 Founders — Student Profile</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- ═══════════ LOGIN ═══════════ -->
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="login-logo">01 Founders</div>
+      <h1 class="login-title">Student<br>Profile</h1>
+      <p class="login-sub">Sign in with your 01 Founders credentials</p>
+
+      <div id="login-error" class="error-msg" role="alert"></div>
+
+      <div class="field">
+        <label for="identifier">Username or Email</label>
+        <input type="text" id="identifier" autocomplete="username" placeholder="johndoe or john@example.com" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <button class="btn-primary" id="login-btn">Sign In</button>
+    </div>
+  </div>
+
+  <!-- ═══════════ APP ═══════════ -->
+  <div id="app">
+    <header>
+      <div class="header-brand">01 / Profile</div>
+      <div class="header-right">
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-page="profile">Profile</button>
+          <button class="nav-tab" data-page="stats">Statistics</button>
+          <button class="nav-tab" data-page="explorer">GraphiQL</button>
+        </nav>
+        <button class="btn-logout" id="logout-btn">Log Out</button>
+      </div>
+    </header>
+
+    <main>
+
+      <!-- PROFILE PAGE -->
+      <div class="page active" id="page-profile">
+
+        <div class="section-label">01 — User Identification</div>
+        <div class="card" id="user-card"><div class="loading-text">Loading user data…</div></div>
+
+        <div class="section-label">02 — XP &amp; Progress</div>
+        <div class="card" id="xp-card"><div class="loading-text">Loading XP data…</div></div>
+
+        <div class="section-label">03 — Audits</div>
+        <div class="card" id="audit-card"><div class="loading-text">Loading audit data…</div></div>
+
+        <div class="section-label">04 — Skills (Bonus)</div>
+        <div class="card" id="skills-card"><div class="loading-text">Loading skills…</div></div>
+
+      </div>
+
+      <!-- STATISTICS PAGE -->
+      <div class="page" id="page-stats">
+        <div class="section-label">Statistics — SVG Graphs</div>
+        <div class="graphs-grid">
+
+          <div class="graph-card wide">
+            <div class="graph-title"><span class="dot"></span>XP Earned Over Time</div>
+            <div id="graph-xp-time"><div class="loading-text">Building graph…</div></div>
+          </div>
+
+          <div class="graph-card">
+            <div class="graph-title"><span class="dot"></span>Audit Ratio</div>
+            <div id="graph-audit-ratio"><div class="loading-text">Building graph…</div></div>
+          </div>
+
+          <div class="graph-card">
+            <div class="graph-title"><span class="dot"></span>Top Skills</div>
+            <div id="graph-skills"><div class="loading-text">Building graph…</div></div>
+          </div>
+
+          <div class="graph-card wide">
+            <div class="graph-title"><span class="dot"></span>Pass / Fail Ratio (Bonus)</div>
+            <div id="graph-passfail"><div class="loading-text">Building graph…</div></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- GRAPHIQL PAGE -->
+      <div class="page" id="page-explorer">
+        <div class="section-label">Custom GraphiQL Explorer (Bonus)</div>
+        <div class="graphiql-layout">
+          <div class="graphiql-pane">
+            <div class="pane-header">
+              Query Editor
+              <button class="btn-run" id="gql-run-btn">▶ Run</button>
+            </div>
+            <textarea class="graphiql-editor" id="gql-editor" spellcheck="false">{
+  user {
+    id
+    login
+  }
+}</textarea>
+          </div>
+          <div class="graphiql-pane">
+            <div class="pane-header">Result</div>
+            <div class="graphiql-result" id="gql-result">// Results will appear here</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <!-- Scripts — order matters -->
+  <script src="js/utils.js"></script>
+  <script src="js/graphql/queries.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/graphs/xpGraph.js"></script>
+  <script src="js/graphs/pieChart.js"></script>
+  <script src="js/graphs/skillGraph.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
