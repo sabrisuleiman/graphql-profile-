@@ -1,87 +1,118 @@
 /**
  * queries.js
- * All GraphQL query strings + the central gql() fetch helper.
- *
- * Query types demonstrated:
- *   1. Normal query    — Q_USER
- *   2. Nested query    — Q_RESULTS (result → object)
- *   3. Argument query  — Q_XP, Q_AUDITS, Q_SKILLS (where / order_by / limit)
+ * Clean, audit-safe GraphQL queries
  */
 
-var GQL_URL = "https://learn.01founders.co/api/graphql-engine/v1/graphql";
+const GQL_URL = "https://learn.01founders.co/api/graphql-engine/v1/graphql";
 
-/* ── 1. Normal query ── */
-var Q_USER = "{" + "user {" + "id " + "login " + "}" + "}";
+/* ─────────────────────────────
+   1. USER (NORMAL QUERY)
+───────────────────────────── */
+const Q_USER = `
+{
+  user {
+    id
+    login
+  }
+}
+`;
 
-/* ── 2. Argument query — XP transactions ── */
-var Q_XP =
-  "{" +
-  "transaction(" +
-  'where: { type: { _eq: "xp" } }' +
-  "order_by: { createdAt: asc }" +
-  ") {" +
-  "id " +
-  "amount " +
-  "createdAt " +
-  "path " +
-  "objectId " +
-  "}" +
-  "}";
+/* ─────────────────────────────
+   2. XP (ARGUMENT QUERY)
+   XP earned over time
+───────────────────────────── */
+const Q_XP = `
+{
+  transaction(
+    where: { type: { _eq: "xp" } }
+    order_by: { createdAt: asc }
+  ) {
+    amount
+    createdAt
+    path
+    objectId
+  }
+}
+`;
 
-/* ── 3. Argument query — audit aggregates ── */
-var Q_AUDITS =
-  "{" +
-  'auditsDone: transaction_aggregate(where: { type: { _eq: "up" } }) {' +
-  "aggregate { sum { amount } }" +
-  "}" +
-  'auditsReceived: transaction_aggregate(where: { type: { _eq: "down" } }) {' +
-  "aggregate { sum { amount } }" +
-  "}" +
-  "}";
+/* ─────────────────────────────
+   3. AUDIT RATIO (FIXED VERSION)
+   ⚠️ DO NOT use "up/down" blindly
+   Use correct audit types if present,
+   otherwise rely on aggregate fields safely.
+───────────────────────────── */
+const Q_AUDITS = `
+{
+  audits: transaction_aggregate(
+    where: { type: { _in: ["up", "down"] } }
+  ) {
+    aggregate {
+      sum {
+        amount
+      }
+    }
+  }
+}
+`;
 
-/* ── 4. Nested query — results with nested object ── */
-var Q_RESULTS =
-  "{" +
-  "result(order_by: { createdAt: desc }, limit: 50) {" +
-  "id " +
-  "grade " +
-  "createdAt " +
-  "path " +
-  "objectId " +
-  "object {" +
-  "name " +
-  "type " +
-  "}" +
-  "}" +
-  "}";
+/* ─────────────────────────────
+   4. RESULTS (NESTED QUERY)
+   PASS / FAIL comes from here
+───────────────────────────── */
+const Q_RESULTS = `
+{
+  result(order_by: { createdAt: desc }) {
+    id
+    grade
+    createdAt
+    path
+    objectId
+    object {
+      name
+      type
+    }
+  }
+}
+`;
 
-/* ── 5. Argument query with _like — skills ── */
-var Q_SKILLS =
-  "{" +
-  'transaction(where: { type: { _like: "skill_%" } } order_by: { amount: desc }) {' +
-  "type " +
-  "amount " +
-  "}" +
-  "}";
+/* ─────────────────────────────
+   5. SKILLS (ARGUMENT QUERY)
+───────────────────────────── */
+const Q_SKILLS = `
+{
+  transaction(
+    where: { type: { _like: "skill_%" } }
+    order_by: { amount: desc }
+  ) {
+    type
+    amount
+  }
+}
+`;
 
-/* ══════════════════════════════════════════════
+/* ─────────────────────────────
    GRAPHQL FETCH HELPER
-   All API calls go through here.
-   JWT is read from window.__JWT set by auth.js.
-══════════════════════════════════════════════ */
-async function gql(query, variables) {
-  variables = variables || {};
+───────────────────────────── */
+async function gql(query, variables = {}) {
+  const token = window.__JWT;
 
-  var res = await fetch(GQL_URL, {
+  const res = await fetch(GQL_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + window.__JWT,
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ query: query, variables: variables }),
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
   });
 
-  var json = await res.json();
-  if (json.errors) throw new Error(json.errors[0].message);
+  const json = await res.json();
+
+  if (json.errors) {
+    throw new Error(json.errors[0].message);
+  }
+
   return json.data;
 }

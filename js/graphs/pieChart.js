@@ -1,35 +1,27 @@
 /**
- * pieChart.js
- * Renders two SVG graphs:
- *   1. Audit Ratio donut chart  → #graph-audit-ratio
- *   2. Pass / Fail ratio chart  → #graph-passfail
- *
- * Both use SVG-only rendering (no canvas, no external libraries).
+ * pieChart.js (FIXED VERSION)
+ * Audit-safe SVG graphs
  */
 
-/* ══════════════════════════════════════════════
-   GRAPH 1 — Audit Ratio Donut
-   Data: Q_AUDITS (transaction_aggregate)
-══════════════════════════════════════════════ */
+/* ─────────────────────────────
+   GRAPH 1 — AUDIT RATIO DONUT
+───────────────────────────── */
 
-/**
- * Render an animated donut chart showing audits done vs received.
- * @param {object} auditData - Result of Q_AUDITS.
- */
 function renderAuditDonut(auditData) {
   const container = document.getElementById("graph-audit-ratio");
 
-  const done = auditData.auditsDone?.aggregate?.sum?.amount || 0;
-  const recv = auditData.auditsReceived?.aggregate?.sum?.amount || 0;
+  const done = Number(auditData?.auditsDone?.aggregate?.sum?.amount || 0);
+  const recv = Number(auditData?.auditsReceived?.aggregate?.sum?.amount || 0);
+
   const total = done + recv;
 
   if (!total) {
-    container.innerHTML =
-      '<div class="loading-text">No audit data available.</div>';
+    container.innerHTML = `<div class="loading-text">No audit data</div>`;
     return;
   }
 
-  const ratio = recv > 0 ? (done / recv).toFixed(2) : "∞";
+  const ratio = recv ? (done / recv).toFixed(2) : "∞";
+
   const cx = 115,
     cy = 115,
     R = 82,
@@ -39,148 +31,105 @@ function renderAuditDonut(auditData) {
   const doneFrac = done / total;
   const recvFrac = recv / total;
 
-  // SVG arc helper: returns stroke-dasharray + dashoffset for a fraction of the circle
   const arc = (frac, offsetFrac) => {
-    const len = (frac * circ).toFixed(2);
-    const offset = -(offsetFrac * circ).toFixed(2);
-    return `stroke-dasharray="${len} ${circ.toFixed(2)}"
-            stroke-dashoffset="${offset}"`;
+    const len = frac * circ;
+    const offset = -(offsetFrac * circ);
+    return `stroke-dasharray="${len} ${circ}" stroke-dashoffset="${offset}"`;
   };
 
   container.innerHTML = `
-    <svg viewBox="0 0 230 250" xmlns="http://www.w3.org/2000/svg"
-         style="width:100%;max-width:300px;display:block;margin:0 auto"
-         role="img" aria-label="Audit ratio donut chart">
+    <svg viewBox="0 0 230 250" xmlns="http://www.w3.org/2000/svg">
 
-      <!-- Background ring -->
       <circle cx="${cx}" cy="${cy}" r="${R}"
               fill="none" stroke="#252b38" stroke-width="${SW}"/>
 
-      <!-- Done (green) segment — animated -->
       <circle cx="${cx}" cy="${cy}" r="${R}"
               fill="none" stroke="#00e5a0" stroke-width="${SW}"
               ${arc(doneFrac, 0)}
-              transform="rotate(-90 ${cx} ${cy})">
-        <animate attributeName="stroke-dasharray"
-                 from="0 ${circ.toFixed(2)}"
-                 to="${(doneFrac * circ).toFixed(2)} ${circ.toFixed(2)}"
-                 dur="1s" fill="freeze"/>
-      </circle>
+              transform="rotate(-90 ${cx} ${cy})"/>
 
-      <!-- Received (purple) segment -->
       <circle cx="${cx}" cy="${cy}" r="${R}"
               fill="none" stroke="#7b5ea7" stroke-width="${SW}"
               ${arc(recvFrac, doneFrac)}
-              transform="rotate(-90 ${cx} ${cy})">
-        <animate attributeName="stroke-dasharray"
-                 from="0 ${circ.toFixed(2)}"
-                 to="${(recvFrac * circ).toFixed(2)} ${circ.toFixed(2)}"
-                 dur="1s" begin="0.5s" fill="freeze"/>
-      </circle>
+              transform="rotate(-90 ${cx} ${cy})"/>
 
-      <!-- Centre text -->
       <text x="${cx}" y="${cy - 12}" text-anchor="middle"
-            fill="#e8eaf0" font-size="28" font-weight="700">${ratio}</text>
+            fill="#fff" font-size="26" font-weight="700">
+        ${ratio}
+      </text>
+
       <text x="${cx}" y="${cy + 12}" text-anchor="middle"
-            fill="#6b7280" font-size="11">Audit Ratio</text>
+            fill="#aaa" font-size="11">Audit Ratio</text>
 
-      <!-- Legend -->
-      <rect x="16" y="202" width="13" height="13" rx="3" fill="#00e5a0"/>
-      <text x="34" y="213" fill="#9ca3af" font-size="11">Done (${fmt(done)})</text>
+    </svg>
+  `;
 
-      <rect x="120" y="202" width="13" height="13" rx="3" fill="#7b5ea7"/>
-      <text x="138" y="213" fill="#9ca3af" font-size="11">Received (${fmt(recv)})</text>
-    </svg>`;
+  if (typeof fmt === "function") {
+    fmt(done);
+    fmt(recv);
+  }
 }
 
-/* ══════════════════════════════════════════════
-   GRAPH 2 — Pass / Fail Ratio (Bonus)
-   Data: Q_RESULTS (result with nested object)
-══════════════════════════════════════════════ */
+/* ─────────────────────────────
+   GRAPH 2 — PASS / FAIL PIE (FIXED)
+───────────────────────────── */
 
-/**
- * Render a pass/fail summary bar + per-project colour-coded strip.
- * @param {object} resultData - Result of Q_RESULTS.
- */
 function renderPassFail(resultData) {
   const container = document.getElementById("graph-passfail");
 
-  const results = resultData.result;
-  if (!results.length) {
-    container.innerHTML =
-      '<div class="loading-text">No result data available.</div>';
+  const raw = resultData?.result || [];
+
+  // 1. CLEAN DATA (important for audit correctness)
+  const cleaned = raw.filter((r) => r && r.objectId != null && r.grade != null);
+
+  // 2. DEDUPLICATE BY PROJECT (CRITICAL FIX)
+  const unique = [...new Map(cleaned.map((r) => [r.objectId, r])).values()];
+
+  const total = unique.length;
+
+  if (!total) {
+    container.innerHTML = `<div class="loading-text">No data</div>`;
     return;
   }
 
-  const passed = results.filter((r) => r.grade >= 1).length;
-  const failed = results.filter((r) => r.grade < 1).length;
-  const total = passed + failed;
-  const pct = passed / total;
+  // 3. NORMALIZE GRADE (CRITICAL FIX)
+  const passed = unique.filter((r) => Number(r.grade) === 1).length;
+  const failed = unique.filter((r) => Number(r.grade) === 0).length;
 
-  const W = 620;
-  const BAR_W = W - 120;
-  const X = 60;
-
-  // Per-project mini bars (most recent 24)
-  const slice = results.slice(0, 24);
-  const barW = ((W - 40) / slice.length - 2).toFixed(1);
-
-  const projBars = slice
-    .map((r, i) => {
-      const col = r.grade >= 1 ? "#00e5a0" : "#e05a5a";
-      const name = r.object?.name || projectName(r.path);
-      const grade = r.grade >= 1 ? "PASS" : "FAIL";
-      return `
-      <rect
-        x="${(20 + i * (parseFloat(barW) + 2)).toFixed(1)}" y="20"
-        width="${barW}" height="40" rx="3"
-        fill="${col}" opacity="0.85"
-        class="graph-dot"
-        data-label="${name}"
-        data-grade="${grade}">
-        <animate attributeName="height" from="0" to="40"
-                 dur="0.4s" begin="${(i * 0.03).toFixed(2)}s" fill="freeze"/>
-        <animate attributeName="y"      from="60" to="20"
-                 dur="0.4s" begin="${(i * 0.03).toFixed(2)}s" fill="freeze"/>
-      </rect>`;
-    })
-    .join("");
+  // 4. SAFE PERCENTAGES
+  const passPct = (passed / total) * 100;
+  const failPct = (failed / total) * 100;
 
   container.innerHTML = `
-    <svg viewBox="0 0 ${W} 170" xmlns="http://www.w3.org/2000/svg"
-         style="width:100%" role="img" aria-label="Pass and fail ratio chart">
+    <svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
 
-      <!-- Summary bar track -->
-      <rect x="${X}" y="10" width="${BAR_W}" height="30" rx="7" fill="#252b38"/>
+      <circle cx="130" cy="130" r="90"
+              fill="none" stroke="#252b38" stroke-width="30"/>
 
-      <!-- Pass fill — animated -->
-      <rect x="${X}" y="10" width="0" height="30" rx="7" fill="#00e5a0">
-        <animate attributeName="width"
-                 from="0" to="${(pct * BAR_W).toFixed(1)}"
-                 dur="1s" fill="freeze" calcMode="spline"
-                 keySplines="0.4 0 0.2 1"/>
-      </rect>
+      <!-- PASS -->
+      <circle cx="130" cy="130" r="90"
+              fill="none" stroke="#00e5a0" stroke-width="30"
+              stroke-dasharray="${passPct * 5.65} 565"
+              transform="rotate(-90 130 130)"/>
 
-      <!-- Summary labels -->
-      <text x="${(X + (pct * BAR_W) / 2).toFixed(1)}" y="30"
-            text-anchor="middle" fill="#0b0e14"
-            font-size="12" font-weight="700">${passed} PASS</text>
-      <text x="${(X + pct * BAR_W + ((1 - pct) * BAR_W) / 2).toFixed(1)}" y="30"
-            text-anchor="middle" fill="#e8eaf0"
-            font-size="12" font-weight="700">${failed} FAIL</text>
+      <!-- FAIL -->
+      <circle cx="130" cy="130" r="90"
+              fill="none" stroke="#e05a5a" stroke-width="30"
+              stroke-dasharray="${failPct * 5.65} 565"
+              stroke-dashoffset="-${passPct * 5.65}"
+              transform="rotate(-90 130 130)"/>
 
-      <!-- Pass rate label -->
-      <text x="${X}" y="56" fill="#6b7280" font-size="10">
-        ${(pct * 100).toFixed(0)}% pass rate · ${total} projects
+      <!-- Center text -->
+      <text x="130" y="125" text-anchor="middle"
+            fill="#fff" font-size="24" font-weight="700">
+        ${passPct.toFixed(0)}%
       </text>
 
-      <!-- Recent projects strip header -->
-      <text x="20" y="84" fill="#4b5563" font-size="10"
-            font-family="Space Mono, monospace">RECENT PROJECTS</text>
+      <text x="130" y="145" text-anchor="middle"
+            fill="#aaa" font-size="11">
+        PASS RATE
+      </text>
 
-      <!-- Per-project bars -->
-      <g transform="translate(0,90)">${projBars}</g>
-    </svg>`;
-
-  addDotTooltips();
+    </svg>
+  `;
 }
